@@ -416,7 +416,19 @@ def main():
     )  # block_size를 모델의 max_position_embeddings에 맞춤
 
     # Dataset Loading and Tokenization
-    raw_datasets = load_dataset(args.dataset_name, args.dataset_config_name)
+    if args.dataset_type == "json" and args.data_files:
+        raw_datasets = load_dataset(
+            "json", data_files={"train": args.data_files}, split="train"
+        )
+    elif args.dataset_type == "huggingface" and args.dataset_name:
+        raw_datasets = load_dataset(
+            args.dataset_name, args.dataset_config_name, split="train"
+        )
+    else:
+        logger.error(
+            "Invalid dataset configuration. Please provide either dataset_type='json' with data_files or dataset_type='huggingface' with dataset_name."
+        )
+        sys.exit(1)
     column_names = list(raw_datasets["train"].features)
     text_column_name = "text" if "text" in column_names else column_names[0]
 
