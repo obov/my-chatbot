@@ -5,7 +5,7 @@ import wandb
 import logging
 import datasets
 import transformers
-
+from datasets import load_dataset, DatasetDict
 from typing import Optional
 from itertools import chain
 from dataclasses import dataclass, field
@@ -40,6 +40,9 @@ class Arguments:
     num_workers: Optional[int] = field(default=None)
     data_files: Optional[str] = field(
         default=None, metadata={"help": "Path to the local dataset file (JSON format)."}
+    )
+    dataset_type: str = field(
+        default=None, metadata={"help": "Type of the dataset, e.g., json, csv, etc."}
     )
 
 
@@ -326,7 +329,7 @@ def setup_logger(training_args: TrainingArguments):
     logger = logging.getLogger()
 
     formatter = colorlog.ColoredFormatter(
-        "%(asctime)s %(log_color)s%(levelname)s%(reset)s: %(message)s",
+        "%(asctime)s %(log_color)s%(levelname)s%(reset)s [%(filename)s:%(lineno)d]: \n >> %(message)s \n",
         log_colors={
             "DEBUG": "blue",
             "INFO": "cyan",
@@ -392,6 +395,65 @@ def group_texts(examples, block_size):
     return result
 
 
+def setup_datasets(args, training_args, model, tokenizer):
+    # Dataset Loading and Tokenization
+    logger = setup_logger(training_args)
+    if args.dataset_type == "json" and args.data_files:
+        raw_datasets = load_dataset(
+            "json", data_files={"full": args.data_files}, split="full"
+        )
+        raw_datasets = raw_datasets.train_test_split(test_size=0.2, seed=42)
+        raw_datasets = DatasetDict(
+            {"train": raw_datasets["train"], "validation": raw_datasets["test"]}
+        )
+        logger.info(raw_datasets)
+    elif args.dataset_type == "huggingface" and args.dataset_name:
+        raw_datasets = load_dataset(args.dataset_name, args.dataset_config_name)
+    else:
+        logger.error(
+            "Invalid dataset configuration. Please provide either dataset_type='json' with data_files or dataset_type='huggingface' with dataset_name."
+        )
+        sys.exit(1)
+    logger.info(raw_datasets["train"])
+    column_names = list(raw_datasets["train"].features)
+    text_column_name = "text" if "text" in column_names else column_names[0]
+
+    # Model's max_position_embeddings 확인 및 block_size 조정
+    max_pos_embeddings = (
+        model.config.max_position_embeddings
+        if hasattr(model.config, "max_position_embeddings")
+        else 1024
+    )
+
+    block_size = min(
+        args.block_size, max_pos_embeddings
+    )  # block_size를 모델의 max_position_embeddings에 맞춤
+    tokenized_datasets = raw_datasets.map(
+        lambda examples: tokenize_function(examples, tokenizer, text_column_name),
+        batched=True,
+        num_proc=args.num_workers,
+        remove_columns=column_names,
+    )
+
+    logger.info(tokenized_datasets)
+
+    lm_datasets = tokenized_datasets.map(
+        lambda examples: group_texts(examples, block_size),  # 조정된 block_size 사용
+        batched=True,
+        num_proc=args.num_workers,
+    )
+
+    logger.info(tokenized_datasets)
+
+    # train_dataset = lm_datasets["train"]
+    train_dataset = lm_datasets["train"]
+    logger.info(train_dataset)
+    eval_dataset = lm_datasets["validation"]
+    logger.info(eval_dataset)
+
+    return (train_dataset, eval_dataset)
+
+
 def main():
     # Argument parsing
     parser = HfArgumentParser((Arguments, TrainingArguments))
@@ -405,50 +467,6 @@ def main():
     # Model and Tokenizer Setup
     model, tokenizer = setup_model_and_tokenizer(args)
 
-    # Model's max_position_embeddings 확인 및 block_size 조정
-    max_pos_embeddings = (
-        model.config.max_position_embeddings
-        if hasattr(model.config, "max_position_embeddings")
-        else 1024
-    )
-    block_size = min(
-        args.block_size, max_pos_embeddings
-    )  # block_size를 모델의 max_position_embeddings에 맞춤
-
-    # Dataset Loading and Tokenization
-    if args.dataset_type == "json" and args.data_files:
-        raw_datasets = load_dataset(
-            "json", data_files={"train": args.data_files}, split="train"
-        )
-    elif args.dataset_type == "huggingface" and args.dataset_name:
-        raw_datasets = load_dataset(
-            args.dataset_name, args.dataset_config_name, split="train"
-        )
-    else:
-        logger.error(
-            "Invalid dataset configuration. Please provide either dataset_type='json' with data_files or dataset_type='huggingface' with dataset_name."
-        )
-        sys.exit(1)
-    column_names = list(raw_datasets["train"].features)
-    text_column_name = "text" if "text" in column_names else column_names[0]
-
-    tokenized_datasets = raw_datasets.map(
-        lambda examples: tokenize_function(examples, tokenizer, text_column_name),
-        batched=True,
-        num_proc=args.num_workers,
-        remove_columns=column_names,
-    )
-
-    lm_datasets = tokenized_datasets.map(
-        lambda examples: group_texts(examples, block_size),  # 조정된 block_size 사용
-        batched=True,
-        num_proc=args.num_workers,
-    )
-
-    # train_dataset = lm_datasets["train"]
-    train_dataset = lm_datasets["train"].select(range(300))
-    eval_dataset = lm_datasets["validation"]
-
     # Check for existing checkpoints
     checkpoint = None
     if os.path.isdir(training_args.output_dir):
@@ -460,6 +478,13 @@ def main():
         repo_name="gpt-finetuned",  # Hugging Face 레포지토리 이름
         organization=None,  # 개인 계정에 업로드하는 경우
         private=False,  # 레포지토리를 공개로 설정
+    )
+
+    train_dataset, eval_dataset = setup_datasets(
+        args,
+        training_args,
+        model,
+        tokenizer,
     )
 
     # Initialize Custom Callbacks
@@ -476,7 +501,7 @@ def main():
         callbacks=[
             CustomLoggerCallback(logger),
             wandb_callback,
-            hf_upload_callback,
+            # hf_upload_callback,
         ],
     )
 

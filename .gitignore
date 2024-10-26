@@ -2,3 +2,5 @@ wandb.txt
 .env
 __pycache__
 wandb
+myenv
+.vscode
