@@ -4,8 +4,8 @@ from langchain.storage import LocalFileStore
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.callbacks.base import BaseCallbackHandler
 import streamlit as st
-from dotenv import load_dotenv
 import os
+from dotenv import load_dotenv
 from langchain_community.chat_models import ChatOpenAI
 from langchain_community.vectorstores import FAISS
 from langchain.embeddings import CacheBackedEmbeddings, OpenAIEmbeddings
@@ -24,6 +24,7 @@ class ChatCallbackHandler(BaseCallbackHandler):
     def on_llm_new_token(self, token, *args, **kwargs):
         self.message += token
         self.message_box.markdown(self.message)
+
 
 @st.cache_data(show_spinner="Embedding file...")
 def embed_file(file):
@@ -66,8 +67,9 @@ def paint_history():
         )
 
 
-llm = ChatOpenAI(
-        model='gpt-4o-mini-2024-07-18',
+def main():
+    llm = ChatOpenAI(
+        model="gpt-4o-mini-2024-07-18",
         temperature=0.1,
         streaming=True,
         callbacks=[
@@ -75,31 +77,28 @@ llm = ChatOpenAI(
         ],
     )
 
-prompt = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            """
-            Answer the question using ONLY the following context. If you don't know the answer just say you don't know. DON'T make anything up.
-            
-            """,
-        ),
-        ("human", "{question}"),
-    ]
-)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                """
+                Answer the question using ONLY the following context. If you don't know the answer just say you don't know. DON'T make anything up.
+                
+                """,
+            ),
+            ("human", "{question}"),
+        ]
+    )
 
-    
-def main():
-    
     send_message("I'm ready! Ask away!", "ai", save=False)
-    
-    if "messages" not in st.session_state :
+
+    if "messages" not in st.session_state:
         st.session_state["messages"] = []
-        
+
     paint_history()
-    
+
     message = st.chat_input("Ask anything about your file...")
-    
+
     if message:
         send_message(message, "human")
         chain = (
@@ -114,14 +113,15 @@ def main():
 
     else:
         st.session_state["messages"] = []
-    
+
+
 def main_ui():
-    
+
     st.set_page_config(
         page_title="챗문철",
         page_icon="🎉",
     )
-    
+
     st.title("챗문철")
 
     st.markdown(
@@ -139,6 +139,7 @@ def main_ui():
             "Upload a .txt .pdf or .docx file",
             type=["pdf", "txt", "docx"],
         )
+
 
 if __name__ == "__main__":
     load_dotenv()
