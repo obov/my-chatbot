@@ -19,6 +19,24 @@ jobs:
         run: |
           aws ec2 start-instances --instance-ids ${{ vars.EC2_INSTANCE_ID }} --region ${{ vars.AWS_REGION }}
 
+      - name: Get EC2 Public IP
+        id: fetch_ip # ID를 설정하여 이후 스텝에서 참조 가능
+        run: |
+          PUBLIC_IP=$(aws ec2 describe-instances \
+            --instance-ids ${{ vars.EC2_INSTANCE_ID }} \
+            --query "Reservations[*].Instances[*].PublicIpAddress" \
+            --output text \
+            --region ${{ vars.AWS_REGION }})
+          echo "PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_ENV  # GitHub 환경 변수로 설정
+
+      - name: Update vas.EC2_NAME_AT_IP
+        run: |
+          curl -X PATCH \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GHCR_PAT }}" \
+            https://api.github.com/repos/obov/my-chatbot/actions/variables/EC2_NAME_AT_IP \
+            -d "{\"value\":\"${{ steps.fetch_ip.outputs.public_ip }}\"}"
+
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.5.3
         with:
