@@ -25,4 +25,4 @@ jobs:
           ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
 
       - name: Setup After Start
-        run: ssh -o StrictHostKeyChecking=no ${{ vars.EC2_NAME_AT_IP }} "bash ${{ vars.EC2_PROJECT_PATH }}/setup-ec2.bash start"
+        run: ssh -o StrictHostKeyChecking=no ${{ vars.EC2_NAME_AT_IP }} "cd ${{vars.EC2_PROJECT_PATH}} && bash setup-ec2.bash start"

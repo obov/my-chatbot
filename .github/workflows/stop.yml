@@ -21,7 +21,7 @@ jobs:
           ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
 
       - name: Setup Before Stop
-        run: ssh -o StrictHostKeyChecking=no ${{ vars.EC2_NAME_AT_IP }} "bash ${{ vars.EC2_PROJECT_PATH }}/setup-ec2.bash stop"
+        run: ssh -o StrictHostKeyChecking=no ${{ vars.EC2_NAME_AT_IP }} "cd ${{vars.EC2_PROJECT_PATH}} && bash setup-ec2.bash stop"
 
       - name: Stop EC2 Instance
         run: |

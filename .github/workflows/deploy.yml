@@ -26,4 +26,4 @@ jobs:
         run: scp -o StrictHostKeyChecking=no -r ./* ${{vars.EC2_NAME_AT_IP}}:${{vars.EC2_PROJECT_PATH}}
 
       - name: Run deployment commands
-        run: ssh -o StrictHostKeyChecking=no ${{vars.EC2_NAME_AT_IP}} "cd ${{vars.EC2_PROJECT_PATH}} && bash ec2-manager.bash"
+        run: ssh -o StrictHostKeyChecking=no ${{vars.EC2_NAME_AT_IP}} "cd ${{vars.EC2_PROJECT_PATH}} && bash setup-ec2.bash deploy"
