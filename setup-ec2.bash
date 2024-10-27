@@ -15,6 +15,7 @@ case $ACTION in
         # 앱 실행
         echo "앱을 백그라운드에서 실행합니다..."
         nohup streamlit run app.py --server.port 8501 --server.headless true &
+        disown
 
         echo "배포 작업이 완료되었습니다."
         ;;
@@ -22,6 +23,7 @@ case $ACTION in
         # 앱 실행
         echo "앱을 백그라운드에서 실행합니다..."
         nohup streamlit run app.py --server.port 8501 --server.headless true &
+        disown
 
         echo "시작 후 설정 작업이 완료되었습니다."
         ;;
