@@ -1,0 +1,28 @@
+name: Stop EC2 Instance
+
+on:
+  workflow_dispatch:
+
+jobs:
+  stop:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+
+      - name: Setup Before Stop
+        run: ssh -o StrictHostKeyChecking=no ${{ vars.EC2_NAME_AT_IP }} "bash ${{ vars.EC2_PROJECT_PATH }}/setup-ec2.bash stop"
+
+      - name: Stop EC2 Instance
+        run: |
+          aws ec2 stop-instances --instance-ids ${{ vars.EC2_INSTANCE_ID }} --region ${{ vars.AWS_REGION }}
