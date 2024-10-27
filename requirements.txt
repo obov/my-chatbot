@@ -1,8 +1,9 @@
-datasets
-transformers
-colorlog
-transformers
-huggingface_hub
-torch
-wandb
-transformers[torch]
+langchain
+streamlit
+langchain-community
+openai
+typing-extensions
+tiktoken
+unstructured
+unstructured[pdf]
+watchdog

@@ -1,3 +1,12 @@
-# my-chatbot
-[train loss](https://api.wandb.ai/links/obov/a74sl9a8)
-..?
+# 챗문철
+
+### setup
+```
+sh setup-local.bash
+source venv/bin/activate
+```
+
+### UI 
+```
+streamlit run app.py
+```
