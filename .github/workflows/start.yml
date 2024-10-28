@@ -77,6 +77,8 @@ jobs:
         env:
           PUBLIC_IP: ${{ env.PUBLIC_IP }}
           EC2_NAME_AT_IP: ubuntu@${{ env.PUBLIC_IP }}
-        run: ssh -o StrictHostKeyChecking=no ${{ env.EC2_NAME_AT_IP }} "cd ${{vars.EC2_PROJECT_PATH}} && bash setup-ec2.bash start"
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ env.EC2_NAME_AT_IP }} 'mkdir -p ~/dev/doorfe'
+          ssh -o StrictHostKeyChecking=no ${{ env.EC2_NAME_AT_IP }} "cd ${{vars.EC2_PROJECT_PATH}} && bash setup-ec2.bash start"
         timeout-minutes: 1
         continue-on-error: true
