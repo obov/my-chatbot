@@ -29,13 +29,15 @@ jobs:
             --region ${{ vars.AWS_REGION }})
           echo "PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_ENV  # GitHub 환경 변수로 설정
 
-      - name: Update vas.EC2_NAME_AT_IP
+      - name: Update vars.EC2_NAME_AT_IP
+        env:
+          PUBLIC_IP: ${{ env.PUBLIC_IP }}
         run: |
           curl -X PATCH \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.GHCR_PAT }}" \
             https://api.github.com/repos/obov/my-chatbot/actions/variables/EC2_NAME_AT_IP \
-            -d "{\"value\":\"${{ steps.fetch_ip.outputs.public_ip }}\"}"
+            -d "{\"value\":\"$PUBLIC_IP\"}"
 
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.5.3
