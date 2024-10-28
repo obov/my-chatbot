@@ -22,6 +22,11 @@ case $ACTION in
     start)
         # 앱 실행
         echo "앱을 백그라운드에서 실행합니다..."
+
+        sudo systemctl daemon-reload
+
+        sudo systemctl start caddy        
+
         nohup streamlit run app.py --server.port 8501 --server.headless true &
 
         echo "시작 후 설정 작업이 완료되었습니다."
