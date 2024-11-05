@@ -37,7 +37,7 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.GHCR_PAT }}" \
             https://api.github.com/repos/obov/my-chatbot/actions/variables/EC2_NAME_AT_IP \
-            -d "{\"value\":\"ubuntu@${{env.PUBLIC_IP}} \"}"
+            -d "{\"value\":\"ubuntu@${{env.PUBLIC_IP}}\"}"
 
       - name: Update Route53 Record
         env:
