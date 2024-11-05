@@ -1,24 +1,14 @@
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-
-from langchain.schema.runnable import RunnableLambda, RunnablePassthrough
-from langchain.storage import LocalFileStore
-from langchain.text_splitter import CharacterTextSplitter
+from langchain.schema.runnable import RunnablePassthrough
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain.callbacks.base import BaseCallbackHandler
 import streamlit as st
-import os
 from dotenv import load_dotenv
 from langchain_community.chat_models import ChatOpenAI
 from langchain_community.vectorstores import FAISS
-from langchain.embeddings import CacheBackedEmbeddings, OpenAIEmbeddings
-from langchain.document_loaders import UnstructuredFileLoader
-from langchain.memory import ConversationBufferMemory
+from langchain.embeddings import OpenAIEmbeddings
 from langchain.chains import ConversationChain
-
-
-from langchain.memory import ConversationBufferMemory
 from langchain.callbacks.base import BaseCallbackHandler
-from langchain.schema import HumanMessage, AIMessage
 from store import get_session_history
 
 
@@ -54,20 +44,6 @@ def paint_history():
             message["role"],
             save=False,
         )
-
-
-# 세션 ID를 기반으로 세션 기록을 가져오는 함수
-
-
-from langchain_core.runnables import RunnablePassthrough
-
-
-class PrintAndReturnRunnable(RunnablePassthrough):
-    def invoke(self, input):
-        print("-----------------------")  # 입력 값을 출력합니다.
-        print("", input)  # 입력 값을 출력합니다.
-        print("-----------------------")  # 입력 값을 출력합니다.
-        return input  # 동일한 값을 반환합니다.
 
 
 def main():
@@ -107,19 +83,12 @@ def main():
         ]
     )
 
-    def preturn(x):
-        print(x)
-        return x
-
     chain = (
-        # {"context": retriever | format_docs, "question": RunnablePassthrough()}
-        RunnableLambda(lambda x: preturn(x))
-        | RunnablePassthrough.assign(
+        RunnablePassthrough.assign(
             context=lambda x: format_docs(
                 retriever.get_relevant_documents(x["question"])
             )
         )
-        | RunnableLambda(lambda x: preturn(x))
         | prompt
         | llm
     )
