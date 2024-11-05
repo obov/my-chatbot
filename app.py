@@ -1,7 +1,9 @@
-from langchain.prompts import ChatPromptTemplate
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+
 from langchain.schema.runnable import RunnableLambda, RunnablePassthrough
 from langchain.storage import LocalFileStore
 from langchain.text_splitter import CharacterTextSplitter
+from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain.callbacks.base import BaseCallbackHandler
 import streamlit as st
 import os
@@ -10,6 +12,14 @@ from langchain_community.chat_models import ChatOpenAI
 from langchain_community.vectorstores import FAISS
 from langchain.embeddings import CacheBackedEmbeddings, OpenAIEmbeddings
 from langchain.document_loaders import UnstructuredFileLoader
+from langchain.memory import ConversationBufferMemory
+from langchain.chains import ConversationChain
+
+
+from langchain.memory import ConversationBufferMemory
+from langchain.callbacks.base import BaseCallbackHandler
+from langchain.schema import HumanMessage, AIMessage
+from store import get_session_history
 
 
 class ChatCallbackHandler(BaseCallbackHandler):
@@ -24,27 +34,6 @@ class ChatCallbackHandler(BaseCallbackHandler):
     def on_llm_new_token(self, token, *args, **kwargs):
         self.message += token
         self.message_box.markdown(self.message)
-
-
-@st.cache_data(show_spinner="Embedding file...")
-def embed_file(file):
-    file_content = file.read()
-    file_path = f"./.cache/files/{file.name}"
-    with open(file_path, "wb") as f:
-        f.write(file_content)
-    cache_dir = LocalFileStore(f"./.cache/embeddings/{file.name}")
-    splitter = CharacterTextSplitter.from_tiktoken_encoder(
-        separator="\n",
-        chunk_size=600,
-        chunk_overlap=100,
-    )
-    loader = UnstructuredFileLoader(file_path)
-    docs = loader.load_and_split(text_splitter=splitter)
-    embeddings = OpenAIEmbeddings()
-    cached_embeddings = CacheBackedEmbeddings.from_bytes_store(embeddings, cache_dir)
-    vectorstore = FAISS.from_documents(docs, cached_embeddings)
-    retriever = vectorstore.as_retriever()
-    return retriever
 
 
 def save_message(message, role):
@@ -67,15 +56,41 @@ def paint_history():
         )
 
 
+# 세션 ID를 기반으로 세션 기록을 가져오는 함수
+
+
+from langchain_core.runnables import RunnablePassthrough
+
+
+class PrintAndReturnRunnable(RunnablePassthrough):
+    def invoke(self, input):
+        print("-----------------------")  # 입력 값을 출력합니다.
+        print("", input)  # 입력 값을 출력합니다.
+        print("-----------------------")  # 입력 값을 출력합니다.
+        return input  # 동일한 값을 반환합니다.
+
+
 def main():
+
+    vectorstore = FAISS.load_local(
+        "vector_stores/faiss_doorfe",
+        embeddings=OpenAIEmbeddings(),
+        allow_dangerous_deserialization=True,
+    )
+
+    retriever = vectorstore.as_retriever()
+
     llm = ChatOpenAI(
-        model="gpt-4o-mini-2024-07-18",
-        temperature=0.1,
+        model="gpt-4o",
+        temperature=1,
         streaming=True,
         callbacks=[
             ChatCallbackHandler(),
         ],
     )
+
+    def format_docs(docs):
+        return "\n\n".join(doc.page_content for doc in docs)
 
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -84,33 +99,56 @@ def main():
                 """
                 Answer the question using ONLY the following context. If you don't know the answer just say you don't know. DON'T make anything up.
                 
+                Context: {context}
                 """,
             ),
+            MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{question}"),
         ]
     )
 
-    send_message("I'm ready! Ask away!", "ai", save=False)
+    def preturn(x):
+        print(x)
+        return x
+
+    chain = (
+        # {"context": retriever | format_docs, "question": RunnablePassthrough()}
+        RunnableLambda(lambda x: preturn(x))
+        | RunnablePassthrough.assign(
+            context=lambda x: format_docs(
+                retriever.get_relevant_documents(x["question"])
+            )
+        )
+        | RunnableLambda(lambda x: preturn(x))
+        | prompt
+        | llm
+    )
+
+    chain_with_history = RunnableWithMessageHistory(
+        chain,
+        get_session_history,  # 세션 기록을 가져오는 함수
+        input_messages_key="question",  # 사용자의 질문이 템플릿 변수에 들어갈 key
+        history_messages_key="chat_history",  # 기록 메시지의 키
+    )
+
+    send_message("안녕하세요!", "ai", save=False)
 
     if "messages" not in st.session_state:
         st.session_state["messages"] = []
 
     paint_history()
 
-    message = st.chat_input("Ask anything about your file...")
+    message = st.chat_input("질문을 입력해주세요.")
 
     if message:
         send_message(message, "human")
-        chain = (
-            {
-                "question": RunnablePassthrough(),
-            }
-            | prompt
-            | llm
-        )
-        with st.chat_message("ai"):
-            response = chain.invoke(message)
 
+        with st.chat_message("ai"):
+            response = chain_with_history.invoke(
+                {"question": message},
+                config={"configurable": {"session_id": "abc123"}},
+            )
+            # response = chain.invoke(message)
     else:
         st.session_state["messages"] = []
 
@@ -133,12 +171,6 @@ def main_ui():
     Upload your files on the sidebar.
     """
     )
-
-    with st.sidebar:
-        file = st.file_uploader(
-            "Upload a .txt .pdf or .docx file",
-            type=["pdf", "txt", "docx"],
-        )
 
 
 if __name__ == "__main__":

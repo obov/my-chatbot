@@ -8,3 +8,5 @@ unstructured
 unstructured[pdf]
 watchdog
 faiss-cpu
+neo4j
+langchain_openai

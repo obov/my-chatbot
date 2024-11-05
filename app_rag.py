@@ -106,14 +106,14 @@ def main():
         ]
     )
 
-    send_message("I'm ready! Ask away!", "ai", save=False)
+    send_message("안녕하세요!", "ai", save=False)
 
     if "messages" not in st.session_state:
         st.session_state["messages"] = []
 
     paint_history()
 
-    message = st.chat_input("Ask anything about your file...")
+    message = st.chat_input("질문을 입력해주세요.")
 
     if message:
         send_message(message, "human")
